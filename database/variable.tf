@@ -18,17 +18,6 @@ variable "db_name" {
   description = "Database name"
 }
 
-variable "db_username" {
-  type        = string
-  description = "Database admin username"
-}
-
-variable "db_password" {
-  type        = string
-  description = "Database admin password (use secrets management in real-world)"
-  sensitive   = true
-}
-
 variable "private_subnet_ids" {
   type        = list(string)
   description = "List of private subnet IDs for the database"

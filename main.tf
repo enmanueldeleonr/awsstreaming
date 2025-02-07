@@ -4,7 +4,7 @@ locals {
 
 module "networking" {
   source = "./networking"
-  count = contains(local.config.modules_to_deploy, "networking") && !lookup(local.config.reuse_infrastructure, "networking", false) ? 1 : 0 # Conditional creation
+  count = contains(local.config.modules_to_deploy, "networking") && !lookup(local.config.reuse_infrastructure, "networking", false) ? 1 : 0
 
   vpc_cidr          = local.config.networking.vpc_cidr
   public_subnet_cidrs = local.config.networking.public_subnet_cidrs
@@ -13,7 +13,7 @@ module "networking" {
 }
 
 data "aws_vpc" "existing_vpc" {
-  count = lookup(local.config.reuse_infrastructure, "networking", false) ? 1 : 0 # Conditionally fetch existing VPC
+  count = lookup(local.config.reuse_infrastructure, "networking", false) ? 1 : 0
   id    = local.config.existing_infrastructure.networking.vpc_id
 }
 
@@ -30,7 +30,7 @@ data "aws_subnet" "existing_private_subnets" {
 
 module "eks" {
   source = "./compute/eks"
-  count = contains(local.config.modules_to_deploy, "eks") && !lookup(local.config.reuse_infrastructure, "eks", false) ? 1 : 0 # Conditional creation
+  count = contains(local.config.modules_to_deploy, "eks") && !lookup(local.config.reuse_infrastructure, "eks", false) ? 1 : 0
 
   cluster_name = local.config.eks.cluster_name
   vpc_id       = module.networking.count > 0 ? module.networking.0.vpc_id : data.aws_vpc.existing_vpc.0.id
@@ -39,11 +39,13 @@ module "eks" {
   eks_cluster_sg_id = module.security_groups.eks_cluster_sg_id
   worker_node_sg_id = module.security_groups.eks_worker_node_sg_id
 
-  depends_on = [module.networking, module.security_groups]
+  kms_key_alias_arn = module.kms.kms_key_alias_arn # Pass KMS key ARN for EKS secrets encryption
+
+  depends_on = [module.networking, module.security_groups, module.kms] 
 }
 
 data "aws_eks_cluster" "existing_eks_cluster" {
-  count = lookup(local.config.reuse_infrastructure, "eks", false) ? 1 : 0 # Conditionally fetch existing EKS
+  count = lookup(local.config.reuse_infrastructure, "eks", false) ? 1 : 0
   name  = local.config.existing_infrastructure.eks.cluster_name
 }
 
@@ -64,8 +66,8 @@ module "database" {
   db_engine_version    = local.config.database.db_engine_version
   db_instance_class    = local.config.database.db_instance_class
   db_name             = local.config.database.db_name
-  db_username          = local.config.database.db_username
-  db_password          = local.config.database.db_password
+  db_username          = data.aws_secretsmanager_secret_version.rds_credentials.secret_string_map.username # Fetch from Secrets Manager
+  db_password          = data.aws_secretsmanager_secret_version.rds_credentials.secret_string_map.password # Fetch from Secrets Manager
   private_subnet_ids  = lookup(local.config.reuse_infrastructure, "networking", false) ? data.aws_subnet.existing_private_subnets.*.id : module.networking.0.private_subnet_ids
   rds_postgres_sg_id   = module.security_groups.rds_postgres_sg_id
   azs                = module.networking.count > 0 ? module.networking.0.azs : data.aws_vpc.existing_vpc.0.availability_zones
@@ -73,7 +75,7 @@ module "database" {
   db_availability_zone = local.config.database.db_availability_zone
   kms_key_alias_arn    = module.kms.kms_key_alias_arn
 
-  depends_on = [module.networking, module.kms, module.security_groups]
+  depends_on = [module.networking, module.kms, module.security_groups, aws_secretsmanager_secret.rds_secret] # Add secret dependency
 }
 
 module "cache" {
@@ -114,4 +116,26 @@ module "security_groups" {
   vpc_id = module.networking.count > 0 ? module.networking.0.vpc_id : data.aws_vpc.existing_vpc.0.id
 
   depends_on = [module.networking] # security groups depend on VPC
+}
+
+
+# Data Source and Resource for Secrets Manager
+resource "aws_secretsmanager_secret" "rds_secret" {
+  count = contains(local.config.modules_to_deploy, "database") ? 1 : 0
+  name = "${local.config.app_name}/rds-credentials" # Secret name based on app_name
+  recovery_window_in_days = 7 
+
+  # Generate random password and username
+  generate_secret_string {
+    secret_string_template = jsonencode({ "username" : "dbadmin" }) # I could have put a variable, but for saving time
+    generate_string_key    = "password"
+    password_length      = 16
+    include_symbols        = false
+    exclude_characters     = "\"@/\\\""
+  }
+}
+
+data "aws_secretsmanager_secret_version" "rds_credentials" {
+  count       = contains(local.config.modules_to_deploy, "database") ? 1 : 0
+  secret_id   = aws_secretsmanager_secret.rds_secret[0].id # Access secret ID from the resource
 }

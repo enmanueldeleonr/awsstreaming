@@ -17,7 +17,7 @@ resource "aws_elasticache_cluster" "redis_cache" {
 
 
 resource "aws_elasticache_subnet_group" "cache_subnet_group" {
-  name        = "cache-subnet-group" # Must be lowercase, hyphen only
-  subnet_ids = var.private_subnet_ids # Private subnets for Cache
+  name        = "cache-subnet-group"
+  subnet_ids = var.private_subnet_ids
   description = "Subnet group for ElastiCache Redis"
 }

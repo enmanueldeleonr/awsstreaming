@@ -8,6 +8,12 @@ output "rds_postgres_endpoint" {
   description = "Endpoint of the RDS PostgreSQL instance"
 }
 
+output "rds_postgres_cluster_endpoint" { 
+  value = module.database.count > 0 ? "${module.database.0.db_instance_address}:${module.database.0.db_instance_port}" : "Database not deployed (check modules_to_deploy config)"
+  description = "Cluster endpoint (address:port) of the RDS PostgreSQL instance"
+}
+
+
 output "elasticache_redis_endpoint" {
   value       = module.cache.count > 0 ? module.cache.0.redis_cluster_primary_endpoint : "Cache not deployed (check modules_to_deploy config)"
   description = "Endpoint of the ElastiCache Redis cluster"

@@ -9,7 +9,7 @@ resource "aws_eks_cluster" "eks_cluster" {
   encryption_config { # KMS Encryption for EKS Secrets
     resources = ["secrets"]
     provider {
-      key_arn = module.kms.kms_key_arn # Assuming KMS module is called 'kms' in root
+      key_arn = var.kms_key_alias_arn # Use KMS Key Alias ARN from variable
     }
   }
 
@@ -64,8 +64,8 @@ resource "aws_eks_node_group" "worker_nodes" {
 
 resource "aws_launch_template" "worker_node_template" { # Launch template to attach worker_node_sg
   name_prefix            = "eks-worker-node-template-"
-  image_id               = "ami-0c55b33c5c2b32bb9" # Amazon Linux 2 AMI - Replace with latest EKS optimized AMI for your region and k8s version
-  instance_type          = "t3.medium" # Consistent instance type
+  image_id               = "ami-047bb4163c506cd98" # Amazon Linux Irlanda
+  instance_type          = "t3.micro" 
   update_default_version = true
 
   network_interface {
@@ -86,6 +86,7 @@ EOF
     }
   }
 }
+
 
 
 # IAM Roles and Policies for EKS

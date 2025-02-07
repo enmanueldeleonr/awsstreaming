@@ -30,7 +30,7 @@ data "aws_iam_policy_document" "kms_key_policy" {
     sid = "Allow Service to use KMS Key"
     principals {
       type        = "Service"
-      identifiers = ["rds.amazonaws.com", "elasticache.amazonaws.com", "kafka.amazonaws.com", "eks.amazonaws.com"] # Added eks.amazonaws.com
+      identifiers = ["rds.amazonaws.com", "elasticache.amazonaws.com", "kafka.amazonaws.com", "eks.amazonaws.com"] 
     }
     actions = [
       "kms:Encrypt",

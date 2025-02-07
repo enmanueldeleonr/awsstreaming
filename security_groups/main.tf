@@ -100,8 +100,8 @@ resource "aws_security_group" "msk_cluster" {
   vpc_id      = var.vpc_id
 
   ingress { # Allow from worker nodes SG - adjust ports as needed for Kafka
-    from_port        = 9092 # Default Kafka port (plaintext) - adjust for TLS/SASL if used
-    to_port          = 9098 # Kafka port range
+    from_port        = 9092 # Default Kafka port (Not secured)
+    to_port          = 9098 
     protocol         = "tcp"
     security_groups = [aws_security_group.eks_worker_node_sg.id] # Allow from worker nodes SG
   }
