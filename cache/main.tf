@@ -1,0 +1,23 @@
+resource "aws_elasticache_cluster" "redis_cache" {
+  cluster_id           = var.cache_cluster_id
+  engine               = "redis"
+  node_type            = var.cache_node_type
+  num_cache_nodes      = var.cache_num_nodes
+  subnet_group_name    = aws_elasticache_subnet_group.cache_subnet_group.name
+  security_group_ids   = [var.elasticache_redis_sg_id]
+  engine_version       = var.cache_engine_version
+  transit_encryption_enabled = true
+  at_rest_encryption_enabled = true
+  kms_key_id               = var.kms_key_alias_arn
+
+  tags = {
+    Name = "redis-cache"
+  }
+}
+
+
+resource "aws_elasticache_subnet_group" "cache_subnet_group" {
+  name        = "cache-subnet-group" # Must be lowercase, hyphen only
+  subnet_ids = var.private_subnet_ids # Private subnets for Cache
+  description = "Subnet group for ElastiCache Redis"
+}

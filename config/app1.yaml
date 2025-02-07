@@ -1,0 +1,46 @@
+app_name: app1
+modules_to_deploy: ["kms", "database", "cache", "messaging", "compute", "security_groups"] # Note: "networking" and "eks" are NOT in this list
+
+aws_region: us-east-1
+
+reuse_infrastructure:
+  networking: true # Indicate reuse of existing networking
+  eks: true        # Indicate reuse of existing EKS
+
+existing_infrastructure: # Information about existing shared infra
+  networking:
+    vpc_id: "vpc-xxxxxxxxxxxxxxxxx" # Replace with your existing VPC ID
+    public_subnet_ids: ["subnet-xxxxxxxxxxxxxxxxx", "subnet-yyyyyyyyyyyyyyyyy"] # Replace with your existing public subnet IDs
+    private_subnet_ids: ["subnet-zzzzzzzzzzzzzzzzz", "subnet-aaaaaaaaaaaaaaaaa", "subnet-bbbbbbbbbbbbbbbb"] # Replace with your existing private subnet IDs
+  eks:
+    cluster_name: "shared-eks-cluster-name" # Replace with your existing EKS cluster name
+
+kms:
+  key_prefix: app1-data-encryption
+  deletion_window_in_days: 10
+
+database:
+  db_allocated_storage: 20
+  db_engine_version: "14.7"
+  db_instance_class: db.t3.micro
+  db_name: app1db
+  db_username: app1admin
+  db_password: "ComplexPassword123" # Replace with secrets management in real-world
+  db_multi_az: false
+  db_availability_zone: null
+
+cache:
+  cache_cluster_id: app1-redis-cluster
+  cache_node_type: cache.t2.micro
+  cache_num_nodes: 1
+  cache_engine_version: "7.x"
+
+messaging:
+  kafka_cluster_name: app1-kafka-cluster
+  kafka_version: "3.4.0"
+  kafka_broker_nodes: 3
+  kafka_instance_type: kafka.t3.small
+
+compute:
+  modules_to_deploy: ["eks"] # while reusing EKS cluster module compute will still deploy the node group
+  eks_cluster_name: "shared-eks-cluster-name" # MUST match existing EKS cluster name
