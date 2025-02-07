@@ -1,4 +1,3 @@
-```markdown
 # Infrastructure as Code for Microservices Application - AWS EKS
 
 ## 1. Cloud Platform Choice: AWS (Amazon Web Services)
@@ -20,15 +19,6 @@ The architecture is designed with the following key principles:
     *   **Security Groups:** Security Groups are used extensively to control network traffic to each resource, following the principle of least privilege.
     *   **KMS Encryption:** Data at rest for RDS PostgreSQL, ElastiCache Redis, and MSK Kafka, as well as EKS secrets, is encrypted using AWS KMS Customer Managed Keys (CMKs). A dedicated KMS module manages the CMKs.
 
-**Architecture Diagram:**
-
-
-Security Groups:
-- EKS Cluster Control Plane SG
-- EKS Worker Node SG
-- RDS SG (for PostgreSQL)
-- ElastiCache SG (for Redis)
-- MSK SG (for Kafka)
 
 ## 3. Assumptions
 
@@ -64,23 +54,26 @@ The Terraform code is organized into modules for better structure and reusabilit
     *   Terraform installed (version 0.13 or later recommended).
     *   AWS CLI configured (for Terraform to authenticate with AWS).
 2.  **Clone the repository** containing the Terraform code.
-3.  **Navigate to the root directory of the Terraform code.**
-4.  **Initialize Terraform:** `terraform init`
+3.  **Navigate to the root directory** of the Terraform code.
+4.  **Initialize Terraform:**
+    \`\`\`bash
+    terraform init
+    \`\`\`
 5.  **Review and Customize Configuration:**
     *   **YAML Files in `config/`:**  Review and customize the YAML configuration files (e.g., `config/app1.yaml`, `config/infra_mgmt.yaml`) according to your needs.
         *   **Important:** If reusing existing Networking or EKS, update the `existing_infrastructure` section in the YAML with the correct IDs.
-        *   **Replace placeholder values** in YAML files (e.g., VPC IDs, subnet IDs, EKS cluster name, database passwords - for passwords, consider using secrets management in real-world instead of hardcoding in YAML even for testing).
+        *   **Replace placeholder values** in YAML files (e.g., VPC IDs, subnet IDs, EKS cluster name, database passwords - for passwords, consider using secrets management in real-world even for testing).
     *   **Variables in `variables.tf` (root module):** Review and customize root level variables like `aws_region` if needed.
 6.  **Deploy Infrastructure (Example for `app1` application):**
-    ```bash
+    \`\`\`bash
     terraform plan -var="app_name=app1"
     terraform apply -var="app_name=app1"
-    ```
+    \`\`\`
     To deploy using the `infra_mgmt.yaml` configuration (for initial Networking and EKS setup):
-    ```bash
+    \`\`\`bash
     terraform plan -var="app_name=infra_mgmt"
     terraform apply -var="app_name=infra_mgmt"
-    ```
+    \`\`\`
 
 ## 6. Outputs
 
