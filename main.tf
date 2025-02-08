@@ -65,12 +65,12 @@ module "database" {
   db_allocated_storage = local.config.database.db_allocated_storage
   db_engine_version    = local.config.database.db_engine_version
   db_instance_class    = local.config.database.db_instance_class
-  db_name             = local.config.database.db_name
-  db_username          = data.aws_secretsmanager_secret_version.rds_credentials.secret_string_map.username # Fetch from Secrets Manager
-  db_password          = data.aws_secretsmanager_secret_version.rds_credentials.secret_string_map.password # Fetch from Secrets Manager
-  private_subnet_ids  = lookup(local.config.reuse_infrastructure, "networking", false) ? data.aws_subnet.existing_private_subnets.*.id : module.networking.0.private_subnet_ids
+  db_name              = local.config.database.db_name
+  db_username          = jsondecode(data.aws_secretsmanager_secret_version.rds_credentials[0].secret_string).username
+  db_password          = jsondecode(data.aws_secretsmanager_secret_version.rds_credentials[0].secret_string).password
+  private_subnet_ids   = lookup(local.config.reuse_infrastructure, "networking", false) ? data.aws_subnet.existing_private_subnets.*.id : module.networking.0.private_subnet_ids
   rds_postgres_sg_id   = module.security_groups.rds_postgres_sg_id
-  azs                = module.networking.count > 0 ? module.networking.0.azs : data.aws_vpc.existing_vpc.0.availability_zones
+  azs                  = module.networking.count > 0 ? module.networking.0.azs : data.aws_vpc.existing_vpc.0.availability_zones
   db_multi_az          = local.config.database.db_multi_az
   db_availability_zone = local.config.database.db_availability_zone
   kms_key_alias_arn    = module.kms.kms_key_alias_arn
