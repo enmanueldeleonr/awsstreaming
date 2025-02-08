@@ -9,7 +9,7 @@ resource "aws_eks_cluster" "eks_cluster" {
   encryption_config { # KMS Encryption for EKS Secrets
     resources = ["secrets"]
     provider {
-      key_arn = var.kms_key_alias_arn # Use KMS Key Alias ARN from variable
+      key_arn = var.kms_key_alias_arn 
     }
   }
 
@@ -22,7 +22,7 @@ resource "aws_eks_node_group" "worker_nodes" {
   node_group_name = "${var.cluster_name}-workers"
   node_role_arn   = aws_iam_role.eks_node_role.arn
   subnet_ids      = var.subnet_ids
-  instance_types  = ["t3.medium"] # Example instance type, adjust as needed
+  instance_types  = ["t3.small"] 
   scaling_config {
     desired_size = 2
     max_size     = 5
@@ -41,16 +41,7 @@ resource "aws_eks_node_group" "worker_nodes" {
   labels = {
     "node.eks.amazonaws.com/nodegroup-name" = "${var.cluster_name}-workers"
   }
-  taints {
-    key    = "dedicated"
-    value  = "microservices"
-    effect = "NO_SCHEDULE"
-  }
 
-  opts = {
-    "kubernetes.io/cluster/autoscaler/node-group-min-size" = "1"
-    "kubernetes.io/cluster/autoscaler/node-group-max-size" = "5"
-  }
 
   launch_template { # For using worker_node_sg_id
     id      = aws_launch_template.worker_node_template.id
@@ -68,15 +59,17 @@ resource "aws_launch_template" "worker_node_template" { # Launch template to att
   instance_type          = "t3.micro" 
   update_default_version = true
 
-  network_interface {
-    security_groups = [var.worker_node_sg_id]
-  }
+  vpc_security_group_ids =  [var.worker_node_sg_id]
 
   user_data = base64encode(<<-EOF
-#!/bin/bash
-/etc/eks/bootstrap.sh ${aws_eks_cluster.eks_cluster.name} --kubelet-extra-args '--node-labels=node.eks.amazonaws.com/nodegroup-name=${aws_eks_node_group.worker_nodes.node_group_name},dedicated=microservices'
-EOF
+  #!/bin/bash
+  /etc/eks/bootstrap.sh ${aws_eks_cluster.eks_cluster.name} --kubelet-extra-args '--node-labels=dedicated=microservices'
+  EOF
   )
+  monitoring {
+    enabled = true
+  }
+
 
   block_device_mappings {
     device_name = "/dev/xvda"
@@ -105,8 +98,9 @@ resource "aws_iam_role" "eks_cluster_role" {
 }
 
 resource "aws_iam_policy_attachment" "eks_cluster_policy" {
+  name       = "EKSClusterPolicyAttachment"
   policy_arn = "arn:aws:iam::aws:policy/AmazonEKSClusterPolicy"
-  role_name  = aws_iam_role.eks_cluster_role.name
+  roles  = [aws_iam_role.eks_cluster_role.name]
 }
 
 
@@ -125,16 +119,19 @@ resource "aws_iam_role" "eks_node_role" {
 }
 
 resource "aws_iam_policy_attachment" "eks_node_policy" {
+  name       = "EKSNodePolicyAttachment"
   policy_arn = "arn:aws:iam::aws:policy/AmazonEKSWorkerNodePolicy"
-  role_name  = aws_iam_role.eks_node_role.name
+  roles  = [aws_iam_role.eks_node_role.name]
 }
 
 resource "aws_iam_policy_attachment" "eks_cni_policy" {
+  name       = "EKSCNIPolicyAttachment"
   policy_arn = "arn:aws:iam::aws:policy/AmazonEKSCNIPolicy"
-  role_name  = aws_iam_role.eks_node_role.name
+  roles  = [aws_iam_role.eks_node_role.name]
 }
 
 resource "aws_iam_policy_attachment" "ec2_container_registry_readonly" {
+  name       = "EC2ContainerRegistryReadOnlyAttachment"
   policy_arn = "arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly"
-  role_name  = aws_iam_role.eks_node_role.name
+  roles  = [aws_iam_role.eks_node_role.name]
 }

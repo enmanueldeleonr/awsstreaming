@@ -94,10 +94,11 @@ resource "aws_security_group" "elasticache_redis" {
 }
 
 
-resource "aws_security_group" "msk_cluster" {
+resource "aws_security_group" "msk_cluster_sg" {
   name        = "msk-cluster-sg"
   description = "Security group for MSK cluster"
   vpc_id      = var.vpc_id
+
 
   ingress { # Allow from worker nodes SG - adjust ports as needed for Kafka
     from_port        = 9092 # Default Kafka port (Not secured)

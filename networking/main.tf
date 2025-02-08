@@ -18,7 +18,7 @@ resource "aws_internet_gateway" "igw" {
 
 resource "aws_nat_gateway" "nat_gateway" {
   allocation_id = aws_eip.nat_gateway_eip.id
-  subnet_id     = aws_subnet.public_subnet_1.id # NAT goes into the public subnet
+  subnet_id     = aws_subnet.public_subnet[0].id # Corrected reference - using index [0]
 
   tags = {
     Name = "nat-gateway"

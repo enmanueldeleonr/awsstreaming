@@ -22,3 +22,8 @@ variable "worker_node_sg_id" {
   type        = string
   description = "Security Group ID for EKS Worker Nodes"
 }
+
+variable "kms_key_alias_arn" { # NEW VARIABLE - KMS Key ARN for EKS Secrets Encryption
+  type        = string
+  description = "ARN of the KMS Key Alias for EKS secrets encryption"
+}

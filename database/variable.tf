@@ -49,3 +49,14 @@ variable "kms_key_alias_arn" {
   type        = string
   description = "ARN of the KMS Key Alias for database encryption"
 }
+
+variable "db_username" { 
+  type        = string
+  description = "Database admin username"
+}
+
+variable "db_password" {  
+  type        = string
+  description = "Database admin password"
+  sensitive   = true 
+}

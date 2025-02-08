@@ -112,30 +112,35 @@ module "messaging" {
 module "security_groups" {
   source = "./security_groups"
   count = contains(local.config.modules_to_deploy, "security_groups") ? 1 : 0
-
-  vpc_id = module.networking.count > 0 ? module.networking.0.vpc_id : data.aws_vpc.existing_vpc.0.id
-
-  depends_on = [module.networking] # security groups depend on VPC
+  vpc_id = try(module.networking[0].vpc_id, data.aws_vpc.existing_vpc.0.id)
 }
 
 
 # Data Source and Resource for Secrets Manager
+
+data "aws_secretsmanager_random_password" "rds_password" {
+  count = contains(local.config.modules_to_deploy, "database") ? 1 : 0
+  password_length              = 16
+  exclude_punctuation = true
+  exclude_characters  = "\"@/%`'\""
+}
+
 resource "aws_secretsmanager_secret" "rds_secret" {
   count = contains(local.config.modules_to_deploy, "database") ? 1 : 0
-  name = "${local.config.app_name}/rds-credentials" # Secret name based on app_name
-  recovery_window_in_days = 7 
+  name = "${local.config.app_name}/rds-credentials"
+  recovery_window_in_days = 7
+}
 
-  # Generate random password and username
-  generate_secret_string {
-    secret_string_template = jsonencode({ "username" : "dbadmin" }) # I could have put a variable, but for saving time
-    generate_string_key    = "password"
-    password_length      = 16
-    include_symbols        = false
-    exclude_characters     = "\"@/\\\""
-  }
+resource "aws_secretsmanager_secret_version" "rds_secret_version" {
+  count = contains(local.config.modules_to_deploy, "database") ? 1 : 0
+  secret_id     = aws_secretsmanager_secret.rds_secret[0].arn 
+  secret_string = jsonencode({ 
+    username = "dbadmin",
+    password = data.aws_secretsmanager_random_password.rds_password[0].random_password 
+  })
 }
 
 data "aws_secretsmanager_secret_version" "rds_credentials" {
   count       = contains(local.config.modules_to_deploy, "database") ? 1 : 0
-  secret_id   = aws_secretsmanager_secret.rds_secret[0].id # Access secret ID from the resource
+  secret_id   = aws_secretsmanager_secret.rds_secret[0].id # Reference the SECRET METADATA RESOURCE
 }

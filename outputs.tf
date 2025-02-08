@@ -24,12 +24,16 @@ output "msk_cluster_brokers" {
   description = "Bootstrap brokers for the MSK cluster"
 }
 
+locals {
+  networking_module_output = try(module.networking[0], null)
+}
+
 output "vpc_id" {
-  value       = module.networking.count > 0 ? module.networking.0.vpc_id : data.aws_vpc.existing_vpc.0.id
+  value       = local.networking_module_output != null ? local.networking_module_output.vpc_id : data.aws_vpc.existing_vpc.0.id
   description = "VPC ID"
 }
 
 output "private_subnet_ids" {
-  value = module.networking.count > 0 ? module.networking.0.private_subnet_ids : data.aws_subnet.existing_private_subnets.*.id
+  value = local.networking_module_output != null ? local.networking_module_output.private_subnet_ids : data.aws_subnet.existing_private_subnets.*.id
   description = "List of Private Subnet IDs"
 }
