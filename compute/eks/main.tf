@@ -13,7 +13,7 @@ resource "aws_eks_cluster" "eks_cluster" {
     }
   }
 
-  depends_on = [aws_iam_role_policy_attachment.eks_cluster_policy]
+  depends_on = [aws_iam_policy_attachment.eks_cluster_policy]
 }
 
 
@@ -49,7 +49,7 @@ resource "aws_eks_node_group" "worker_nodes" {
   }
 
 
-  depends_on = [aws_iam_role_policy_attachment.eks_node_policy]
+  depends_on = [aws_iam_policy_attachment.eks_node_policy]
 }
 
 

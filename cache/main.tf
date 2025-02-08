@@ -7,8 +7,6 @@ resource "aws_elasticache_cluster" "redis_cache" {
   security_group_ids   = [var.elasticache_redis_sg_id]
   engine_version       = var.cache_engine_version
   transit_encryption_enabled = true
-  at_rest_encryption_enabled = true
-  kms_key_id               = var.kms_key_alias_arn
 
   tags = {
     Name = "redis-cache"

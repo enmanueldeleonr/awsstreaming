@@ -33,13 +33,13 @@ module "eks" {
   count = contains(local.config.modules_to_deploy, "eks") && !lookup(local.config.reuse_infrastructure, "eks", false) ? 1 : 0
 
   cluster_name = local.config.eks.cluster_name
-  vpc_id       = module.networking.count > 0 ? module.networking.0.vpc_id : data.aws_vpc.existing_vpc.0.id
-  subnet_ids   = module.networking.count > 0 ? module.networking.0.private_subnet_ids : data.aws_subnet.existing_private_subnets.*.id
+  vpc_id       = length(module.networking) > 0 ? module.networking[0].vpc_id : data.aws_vpc.existing_vpc[0].id
+  subnet_ids   = length(module.networking) > 0 ? module.networking[0].private_subnet_ids : data.aws_subnet.existing_private_subnets[*].id
 
-  eks_cluster_sg_id = module.security_groups.eks_cluster_sg_id
-  worker_node_sg_id = module.security_groups.eks_worker_node_sg_id
+  eks_cluster_sg_id = module.security_groups[0].eks_cluster_sg_id
+  worker_node_sg_id = module.security_groups[0].eks_worker_node_sg_id
 
-  kms_key_alias_arn = module.kms.kms_key_alias_arn # Pass KMS key ARN for EKS secrets encryption
+  kms_key_alias_arn = module.kms[0].kms_key_alias_arn
 
   depends_on = [module.networking, module.security_groups, module.kms] 
 }
@@ -69,11 +69,11 @@ module "database" {
   db_username          = jsondecode(data.aws_secretsmanager_secret_version.rds_credentials[0].secret_string).username
   db_password          = jsondecode(data.aws_secretsmanager_secret_version.rds_credentials[0].secret_string).password
   private_subnet_ids   = lookup(local.config.reuse_infrastructure, "networking", false) ? data.aws_subnet.existing_private_subnets.*.id : module.networking.0.private_subnet_ids
-  rds_postgres_sg_id   = module.security_groups.rds_postgres_sg_id
-  azs                  = module.networking.count > 0 ? module.networking.0.azs : data.aws_vpc.existing_vpc.0.availability_zones
+  rds_postgres_sg_id   = module.security_groups[0].rds_postgres_sg_id
+  azs                  = length(module.networking) > 0 ? module.networking[0].azs : distinct(data.aws_subnet.existing_private_subnets[*].availability_zone)
   db_multi_az          = local.config.database.db_multi_az
   db_availability_zone = local.config.database.db_availability_zone
-  kms_key_alias_arn    = module.kms.kms_key_alias_arn
+  kms_key_alias_arn    = module.kms[0].kms_key_alias_arn
 
   depends_on = [module.networking, module.kms, module.security_groups, aws_secretsmanager_secret.rds_secret] # Add secret dependency
 }
@@ -87,8 +87,8 @@ module "cache" {
   cache_num_nodes       = local.config.cache.cache_num_nodes
   cache_engine_version  = local.config.cache.cache_engine_version
   private_subnet_ids    = lookup(local.config.reuse_infrastructure, "networking", false) ? data.aws_subnet.existing_private_subnets.*.id : module.networking.0.private_subnet_ids
-  elasticache_redis_sg_id = module.security_groups.elasticache_redis_sg_id
-  kms_key_alias_arn     = module.kms.kms_key_alias_arn
+  elasticache_redis_sg_id = module.security_groups[0].elasticache_redis_sg_id
+  kms_key_alias_arn     = module.kms[0].kms_key_alias_arn
 
   depends_on = [module.networking, module.security_groups, module.kms]
 }
@@ -102,8 +102,8 @@ module "messaging" {
   kafka_broker_nodes    = local.config.messaging.kafka_broker_nodes
   kafka_instance_type   = local.config.messaging.kafka_instance_type
   private_subnet_ids  = lookup(local.config.reuse_infrastructure, "networking", false) ? data.aws_subnet.existing_private_subnets.*.id : module.networking.0.private_subnet_ids
-  msk_cluster_sg_id     = module.security_groups.msk_cluster_sg_id
-  kms_key_alias_arn     = module.kms.kms_key_alias_arn
+  msk_cluster_sg_id     = module.security_groups[0].msk_cluster_sg_id
+  kms_key_alias_arn     = module.kms[0].kms_key_alias_arn
 
   depends_on = [module.networking, module.security_groups, module.kms]
 }
