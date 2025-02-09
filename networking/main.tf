@@ -43,6 +43,7 @@ resource "aws_subnet" "public_subnet" {
 
   tags = {
     Name = "public-subnet-${count.index + 1}"
+    terraform-public-subnet = "true"
   }
 }
 
@@ -54,6 +55,7 @@ resource "aws_subnet" "private_subnet" {
 
   tags = {
     Name = "private-subnet-${count.index + 1}"
+    terraform-private-subnet = "true"
   }
 }
 

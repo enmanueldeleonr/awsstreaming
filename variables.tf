@@ -5,6 +5,6 @@ variable "app_name" {
 
 variable "aws_region" {
   type        = string
-  default     = "us-east-1" # Default AWS Region
+  default     = "eu-west-1" # Default AWS Region
   description = "AWS Region to deploy to"
 }

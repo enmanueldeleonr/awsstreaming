@@ -1,7 +1,7 @@
 app_name: app1
 modules_to_deploy: ["kms", "database", "cache", "messaging", "compute", "security_groups"] 
 
-aws_region: us-east-1
+aws_region: eu-west-1
 
 reuse_infrastructure:
   networking: true # Indicate reuse of existing networking
@@ -9,9 +9,9 @@ reuse_infrastructure:
 
 existing_infrastructure: 
   networking:
-    vpc_id: "vpc-xxxxxxxxxxxxxxxxx" 
-    public_subnet_ids: ["subnet-xxxxxxxxxxxxxxxxx", "subnet-yyyyyyyyyyyyyyyyy"] 
-    private_subnet_ids: ["subnet-zzzzzzzzzzzzzzzzz", "subnet-aaaaaaaaaaaaaaaaa", "subnet-bbbbbbbbbbbbbbbb"] 
+    vpc_id: "vpc-0660fdd342fa870de" 
+    public_subnet_ids: ["subnet-04c7e26d9dbcfeb52", "subnet-0a87b5f3f34b3cfd1"] 
+    private_subnet_ids: ["subnet-0eddb73a07d97574c", "subnet-018751fdd0049d93e", "subnet-04016aa2951215e5d"] 
   eks:
     cluster_name: "shared-eks-cluster-name" 
 
@@ -31,7 +31,7 @@ cache:
   cache_cluster_id: app1-redis-cluster
   cache_node_type: cache.t2.micro
   cache_num_nodes: 1
-  cache_engine_version: "7.x"
+  cache_engine_version: "7.0"
 
 messaging:
   kafka_cluster_name: app1-kafka-cluster

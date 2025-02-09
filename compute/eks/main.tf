@@ -22,10 +22,11 @@ resource "aws_eks_node_group" "worker_nodes" {
   node_group_name = "${var.cluster_name}-workers"
   node_role_arn   = aws_iam_role.eks_node_role.arn
   subnet_ids      = var.subnet_ids
-  instance_types  = ["t3.small"] 
+  instance_types  = ["t3.micro"]
+  ami_type        = "AL2_x86_64"
   scaling_config {
-    desired_size = 2
-    max_size     = 5
+    desired_size = 1
+    max_size     = 2
     min_size     = 1
   }
   update_config {
@@ -43,42 +44,11 @@ resource "aws_eks_node_group" "worker_nodes" {
   }
 
 
-  launch_template { # For using worker_node_sg_id
-    id      = aws_launch_template.worker_node_template.id
-    version = "$Latest"
-  }
-
 
   depends_on = [aws_iam_policy_attachment.eks_node_policy]
 }
 
 
-resource "aws_launch_template" "worker_node_template" { # Launch template to attach worker_node_sg
-  name_prefix            = "eks-worker-node-template-"
-  image_id               = "ami-047bb4163c506cd98" # Amazon Linux Irlanda
-  instance_type          = "t3.micro" 
-  update_default_version = true
-
-  vpc_security_group_ids =  [var.worker_node_sg_id]
-
-  user_data = base64encode(<<-EOF
-  #!/bin/bash
-  /etc/eks/bootstrap.sh ${aws_eks_cluster.eks_cluster.name} --kubelet-extra-args '--node-labels=dedicated=microservices'
-  EOF
-  )
-  monitoring {
-    enabled = true
-  }
-
-
-  block_device_mappings {
-    device_name = "/dev/xvda"
-    ebs {
-      volume_size = 50
-      volume_type = "gp2"
-    }
-  }
-}
 
 
 
@@ -126,7 +96,7 @@ resource "aws_iam_policy_attachment" "eks_node_policy" {
 
 resource "aws_iam_policy_attachment" "eks_cni_policy" {
   name       = "EKSCNIPolicyAttachment"
-  policy_arn = "arn:aws:iam::aws:policy/AmazonEKSCNIPolicy"
+  policy_arn = "arn:aws:iam::aws:policy/AmazonEKS_CNI_Policy"
   roles  = [aws_iam_role.eks_node_role.name]
 }
 
