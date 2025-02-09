@@ -22,3 +22,8 @@ output "msk_cluster_sg_id" {
   value = aws_security_group.msk_cluster_sg.id
   description = "Security Group ID for MSK cluster"
 }
+
+output "worker_nodes_sg_id" {
+  description = "Security group ID for worker nodes"
+  value       = aws_security_group.eks_worker_node_sg.id
+}

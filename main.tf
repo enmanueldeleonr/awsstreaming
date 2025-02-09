@@ -141,7 +141,7 @@ module "eks" {
   subnet_ids   = length(module.networking) > 0 ? module.networking[0].private_subnet_ids : data.aws_subnet.existing_private_subnets.*.id
 
   eks_cluster_sg_id = length(module.security_groups) > 0 ? module.security_groups[0].eks_cluster_sg_id : module.security_groups.eks_cluster_sg_id
-  worker_node_sg_id = length(module.security_groups) > 0 ? module.security_groups[0].worker_node_sg_id : module.security_groups.eks_worker_node_sg_id
+  worker_node_sg_id = length(module.security_groups) > 0 ? module.security_groups[0].worker_nodes_sg_id : ""
   kms_key_alias_arn = length(module.kms) > 0 ? module.kms[0].kms_key_alias_arn : module.kms.kms_key_alias_arn
 
   depends_on = [module.networking, module.security_groups, module.kms]
