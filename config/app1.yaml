@@ -3,11 +3,7 @@ aws_region: eu-west-1
 modules_to_deploy:
   - database
   - cache
-
-modules_to_deploy:
-  - database
-  - cache
-
+  
 reuse_infrastructure:
   networking: true
   security_groups: true
@@ -18,15 +14,22 @@ reuse_infrastructure:
   messaging: true
 
 networking:
-  vpc_name_tag: infra-mgmt-vpc
+  vpc_name_tag: "infra_mgmt-vpc"
+
+security_groups:
+  elasticache_redis_sg_name: "elasticache-redis-sg"
+  rds_postgres_sg_name: "rds-postgres-sg"
+
+kms:
+  kms_alias: "infra-mgmt-kms-data-key"
 
 database:
   db_allocated_storage: 20
   db_instance_class: db.t3.micro
-  db_engine_version: "15.4"
+  db_engine_version: "16.4"
   db_name: app1_db
   db_multi_az: false
-  db_availability_zone: us-west-2b
+  db_availability_zone: eu-west-1a
   db_credentials_secret_name: rds-app1-credentials
 
 cache:

@@ -71,13 +71,24 @@ The Terraform code is organized into modules for better structure and reusabilit
 6.  **Deploy Infrastructure (Example for `app1` application):**  
     To deploy using the `infra_mgmt.yaml` configuration (for initial Networking and EKS setup):  
     ```bash  
+    terraform workspace new infra_mgmt || terraform workspace select infra_mgmt
     terraform plan -var="app_name=infra_mgmt"  
     terraform apply -var="app_name=infra_mgmt"  
     ```  
     ```bash  
+    terraform workspace new app1 || terraform workspace select app1
     terraform plan -var="app_name=app1"  
     terraform apply -var="app_name=app1"  
     ```  
+    To verify your workspaces:
+    ```bash
+    terraform workspace list
+    ```
+    To change workspaces:
+    ```bash
+    terraform workspace select infra_mgmt  # Switch to infra_mgmt
+    terraform workspace select app1        # Switch to app1
+    ```
 
 ## 6. Outputs  
 
@@ -101,3 +112,4 @@ These outputs can be used to configure your microservices applications to connec
 * Some cost optimization may be possible—perhaps using SQS and SNS instead of the expensive MSK.  
 * For databases, it's a good practice to change the default ports.  
 * Better Security Group creation with more specific rules should be taken into account.  
+* The EKS Cluster can take a lot to destroy since it has lifecicle policie attach in the autoscaling group.

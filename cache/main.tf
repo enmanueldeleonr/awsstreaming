@@ -11,6 +11,7 @@ resource "aws_elasticache_cluster" "redis" {
     Name        = "${var.app_name}-${var.cache_cluster_id}-cache-cluster" # Use app_name in naming
     Application = var.app_name # Use app_name for tagging
   }
+  depends_on = [ aws_elasticache_subnet_group.redis ]
 }
 
 resource "aws_elasticache_subnet_group" "redis" {

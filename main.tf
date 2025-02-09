@@ -7,6 +7,41 @@ locals {
   reuse_kms        = lookup(local.config.reuse_infrastructure, "kms", false)
 }
 
+#Reuse KMS
+data "aws_kms_key" "existing_kms_key" {
+  count = local.reuse_kms ? 1 : 0
+  key_id = "alias/${local.config.kms.kms_alias}"
+}
+
+#Reuse security groups
+data "aws_security_group" "rds_postgres_sg" {
+  count = local.reuse_security_groups ? 1 : 0
+
+  filter {
+    name   = "group-name"
+    values = ["${local.config.security_groups.rds_postgres_sg_name}"]
+  }
+
+  filter {
+    name   = "vpc-id"
+    values = [data.aws_vpc.existing_vpc[0].id]
+  }
+}
+
+data "aws_security_group" "elasticache_redis_sg" {
+  count = local.reuse_security_groups ? 1 : 0
+
+  filter {
+    name   = "group-name"
+    values = ["${local.config.security_groups.elasticache_redis_sg_name}"]
+  }
+
+  filter {
+    name   = "vpc-id"
+    values = [data.aws_vpc.existing_vpc[0].id]
+  }
+}
+
 data "aws_availability_zones" "available" {
   state = "available"
 }
@@ -23,34 +58,35 @@ data "aws_subnets" "existing_private_subnets" {
   count = local.reuse_networking ? 1 : 0
   filter {
     name = "vpc-id"
-    values = [data.aws_vpc.existing_vpc[count.index].id] 
+    values = [data.aws_vpc.existing_vpc[count.index].id]
   }
-  filter {
-    name   = "tag: Tier"
-    values = ["Private"]
+  tags = {
+    Tier = "Private"
   }
+
+  depends_on = [ data.aws_vpc.existing_vpc ]
 }
 
 data "aws_subnets" "existing_public_subnets" {
   count = local.reuse_networking ? 1 : 0
   filter {
     name = "vpc-id"
-    values = [data.aws_vpc.existing_vpc[count.index].id] 
+    values = [data.aws_vpc.existing_vpc[count.index].id]
   }
-  filter {
-    name   = "tag:Tier"
-    values = ["Public"]
+  tags = {
+    Tier = "Public"
   }
+  depends_on = [ data.aws_vpc.existing_vpc ]
 }
 
 data "aws_subnet" "existing_private_subnet" {
-  for_each = toset(data.aws_subnets.existing_private_subnets[0].ids)
+  for_each = length(data.aws_subnets.existing_private_subnets) > 0 ? toset(data.aws_subnets.existing_private_subnets[0].ids) : toset([])
 
   id = each.value
 }
 
 data "aws_subnet" "existing_public_subnet" {
-  for_each = toset(data.aws_subnets.existing_public_subnets[0].ids)
+  for_each = length(data.aws_subnets.existing_public_subnets) > 0 ? toset(data.aws_subnets.existing_public_subnets[0].ids) : toset([])
 
   id = each.value
 }
@@ -100,12 +136,13 @@ module "database" {
   db_name               = local.config.database.db_name
   db_multi_az           = local.config.database.db_multi_az
   db_availability_zone  = local.config.database.db_availability_zone
-  private_subnet_ids = length(module.networking) > 0 ? module.networking[0].private_subnet_ids : data.aws_subnets.existing_private_subnets[0].ids
-  azs = length(module.networking) > 0 ? module.networking[0].azs : distinct([for subnet in data.aws_subnet.existing_private_subnet : subnet.value.availability_zone])
+  private_subnet_ids = local.reuse_networking ? data.aws_subnets.existing_private_subnets[0].ids : module.networking.private_subnet_ids
+  azs = length(module.networking) > 0 ? module.networking[0].azs : distinct([for subnet in data.aws_subnet.existing_private_subnet : subnet.availability_zone])
   db_username             = jsondecode(data.aws_secretsmanager_secret_version.rds_credentials[0].secret_string).username
   db_password             = jsondecode(data.aws_secretsmanager_secret_version.rds_credentials[0].secret_string).password
-  kms_key_alias_arn     = length(module.kms) > 0 ? module.kms[0].kms_key_alias_arn : module.kms.kms_key_alias_arn
-  rds_postgres_sg_id    = length(module.security_groups) > 0 ? module.security_groups[0].rds_postgres_sg_id : module.security_groups.rds_postgres_sg_id # Get SG from security_groups
+  kms_key_alias_arn = local.reuse_kms ? data.aws_kms_key.existing_kms_key[0].arn : module.kms[0].kms_key_alias_arn
+  rds_postgres_sg_id = local.reuse_security_groups ? data.aws_security_group.rds_postgres_sg[0].id : module.security_groups[0].rds_postgres_sg_id
+
 
 
   depends_on = [module.networking, module.kms, module.security_groups, aws_secretsmanager_secret.rds_secret]
@@ -121,10 +158,10 @@ module "cache" {
   engine_version        = local.config.cache.engine_version
   cache_node_type         = local.config.cache.cache_node_type
   num_cache_nodes         = local.config.cache.num_cache_nodes
-  private_subnet_ids = length(module.networking) > 0 ? module.networking[0].private_subnet_ids : data.aws_subnets.existing_private_subnets[0].ids
-  azs = length(module.networking) > 0 ? module.networking[0].azs : distinct([for subnet in data.aws_subnet.existing_private_subnet : subnet.value.availability_zone])
-  elasticache_redis_sg_id = length(module.security_groups) > 0 ? module.security_groups[0].elasticache_redis_sg_id : module.security_groups.elasticache_redis_sg_id
-  kms_key_alias_arn       = length(module.kms) > 0 ? module.kms[0].kms_key_alias_arn : module.kms.kms_key_alias_arn
+  private_subnet_ids = local.reuse_networking ? data.aws_subnets.existing_private_subnets[0].ids : module.networking.private_subnet_ids
+  azs = length(module.networking) > 0 ? module.networking[0].azs : distinct([for subnet in data.aws_subnet.existing_private_subnet : subnet.availability_zone])
+  elasticache_redis_sg_id = local.reuse_security_groups ? data.aws_security_group.elasticache_redis_sg[0].id : module.security_groups[0].elasticache_redis_sg_id
+  kms_key_alias_arn = local.reuse_kms ? data.aws_kms_key.existing_kms_key[0].arn : module.kms[0].kms_key_alias_arn
 
   depends_on = [module.networking, module.security_groups, module.kms]
 }
@@ -172,7 +209,7 @@ data "aws_secretsmanager_random_password" "rds_password" {
 resource "aws_secretsmanager_secret" "rds_secret" {
   count                   = contains(local.config.modules_to_deploy, "database") ? 1 : 0
   name                    = "${local.config.app_name}/rds-credentials"
-  recovery_window_in_days = 7
+  recovery_window_in_days = 0
 }
 
 resource "aws_secretsmanager_secret_version" "rds_secret_version" {
