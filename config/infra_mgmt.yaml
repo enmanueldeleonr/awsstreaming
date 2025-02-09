@@ -3,7 +3,6 @@ modules_to_deploy:
   - networking
   - security_groups
   - kms
-  - messaging
   - eks
 
 aws_region: eu-west-1
@@ -19,14 +18,9 @@ reuse_infrastructure:
 
 networking:
   vpc_cidr: "10.0.0.0/16"
-  public_subnet_cidrs: ["10.0.1.0/24", "10.0.2.0/24"]
-  private_subnet_cidrs: ["10.0.101.0/24", "10.0.102.0/24"]
+  public_subnet_cidrs: ["10.0.1.0/24", "10.0.2.0/24", "10.0.3.0/24"]
+  private_subnet_cidrs: ["10.0.4.0/24", "10.0.5.0/24", "10.0.6.0/24"]
   vpc_name_tag: "infra-mgmt-vpc"
-
-messaging:
-  kafka_version: "3.5.1"
-  kafka_instance_type: "kafka.t3.small"
-  kafka_cluster_name: "infra-mgmt-kafka-cluster"
 
 kms:
   key_prefix: infra-mgmt-kms

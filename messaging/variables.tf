@@ -10,7 +10,7 @@ variable "kafka_version" {
 
 variable "kafka_broker_nodes" {
   type        = number
-  default     = 3
+  default     = 2
   description = "Number of broker nodes for MSK"
 }
 

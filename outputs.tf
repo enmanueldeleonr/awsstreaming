@@ -3,9 +3,9 @@ output "vpc_id" {
 }
 
 output "private_subnet_ids" {
-  value = length(module.networking) > 0 ? module.networking[0].private_subnet_ids : data.aws_subnet.existing_private_subnets.*.id
+  value = length(module.networking) > 0 ? module.networking[0].private_subnet_ids : data.aws_subnets.existing_private_subnets[0].ids
 }
 
 output "public_subnet_ids" {
-  value = length(module.networking) > 0 ? module.networking[0].private_subnet_ids : data.aws_subnet.existing_public_subnets.*.id
+  value = length(module.networking) > 0 ? module.networking[0].public_subnet_ids : data.aws_subnets.existing_public_subnets[0].ids
 }

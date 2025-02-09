@@ -60,7 +60,7 @@ resource "aws_internet_gateway" "igw" {
 resource "aws_nat_gateway" "nat_gateway" {
   count = var.create_networking ? 1 : 0
   allocation_id = aws_eip.nat_gateway_eip[0].id
-  subnet_id     = aws_subnet.public_subnet[0].id
+  subnet_id = values(aws_subnet.public_subnet)[0].id
   tags = {
     Name = "nat-gateway"
   }
@@ -79,68 +79,73 @@ resource "aws_eip" "nat_gateway_eip" {
 
 # Public Route Table - Created only when var.create_networking is true
 resource "aws_route_table" "public_route_table" {
-  count = var.create_networking ? 1 : 0
+  for_each = { for az in var.azs : az => az }
   vpc_id = aws_vpc.main[0].id
   route {
     cidr_block = "0.0.0.0/0"
     gateway_id = aws_internet_gateway.igw[0].id
   }
   tags = {
-    Name = "public-route-table"
+    Name = "${var.app_name}-public-route-table-${each.key}"
   }
 }
 
 
 # Public Subnets - Created only when var.create_networking is true
 resource "aws_subnet" "public_subnet" {
-  count = var.create_networking ? 1 : 0
+  for_each = { for idx, az in var.azs : az => idx }
+
   vpc_id            = aws_vpc.main[0].id
-  cidr_block        = element(var.public_subnet_cidrs, count.index)
-  availability_zone = element(data.aws_availability_zones.available.names, count.index)
-  map_public_ip_on_launch = true
+  cidr_block        = cidrsubnet(var.vpc_cidr, 8, each.value)
+  availability_zone = each.key
+
   tags = {
-    Name = "public-subnet-${count.index + 1}"
+    Name = "${var.app_name}-public-subnet-${each.key}"
+    Tier = "Public"
   }
 }
 
 
 # Associate Public Subnets with Public Route Table - Created only when var.create_networking is true
 resource "aws_route_table_association" "public_subnet_association" {
-  count = var.create_networking ? 1 : 0
-  subnet_id      = aws_subnet.public_subnet[count.index].id
-  route_table_id = aws_route_table.public_route_table[0].id
+  for_each = aws_subnet.public_subnet
+  subnet_id      = each.value.id  
+  route_table_id = aws_route_table.public_route_table[each.key].id
 }
 
 
 # Private Route Table - Created only when var.create_networking is true
 resource "aws_route_table" "private_route_table" {
-  count = var.create_networking ? 1 : 0
+  for_each = aws_subnet.private_subnet
   vpc_id = aws_vpc.main[0].id
   route {
     cidr_block = "0.0.0.0/0"
     nat_gateway_id = aws_nat_gateway.nat_gateway[0].id
   }
   tags = {
-    Name = "private-route-table"
+    Name = "${var.app_name}-private-route-table-${each.key}"
   }
 }
 
 
 # Private Subnets - Created only when var.create_networking is true
 resource "aws_subnet" "private_subnet" {
-  count = var.create_networking ? 1 : 0
+  for_each = { for idx, az in var.azs : az => idx }
+
   vpc_id            = aws_vpc.main[0].id
-  cidr_block        = element(var.private_subnet_cidrs, count.index)
-  availability_zone = element(data.aws_availability_zones.available.names, count.index)
+  cidr_block        = cidrsubnet(var.vpc_cidr, 8, each.value + length(var.azs))
+  availability_zone = each.key
+
   tags = {
-    Name = "private-subnet-${count.index + 1}"
+    Name = "${var.app_name}-private-subnet-${each.key}"
+    Tier = "Private"
   }
 }
 
 
 # Associate Private Subnets with Private Route Table - Created only when var.create_networking is true
 resource "aws_route_table_association" "private_subnet_association" {
-  count = var.create_networking ? 1 : 0
-  subnet_id      = aws_subnet.private_subnet[count.index].id
-  route_table_id = aws_route_table.private_route_table[0].id
+  for_each = aws_subnet.private_subnet
+  subnet_id      = each.value.id
+  route_table_id = aws_route_table.private_route_table[each.key].id
 }

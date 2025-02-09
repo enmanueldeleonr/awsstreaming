@@ -1,0 +1,6 @@
+If you need to deploy Kafka
+Add this into the base infra:
+messaging:
+  kafka_version: "3.5.1"
+  kafka_instance_type: "kafka.t3.small"
+  kafka_cluster_name: "infra-mgmt-kafka-cluster"

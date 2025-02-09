@@ -19,11 +19,11 @@ data "aws_vpc" "existing_vpc" {
   }
 }
 
-data "aws_subnet" "existing_private_subnets" {
+data "aws_subnets" "existing_private_subnets" {
   count = local.reuse_networking ? 1 : 0
   filter {
     name = "vpc-id"
-    values = [data.aws_vpc.existing_vpc[0].id]
+    values = [data.aws_vpc.existing_vpc[count.index].id] 
   }
   filter {
     name   = "tag: Tier"
@@ -31,16 +31,28 @@ data "aws_subnet" "existing_private_subnets" {
   }
 }
 
-data "aws_subnet" "existing_public_subnets" {
+data "aws_subnets" "existing_public_subnets" {
   count = local.reuse_networking ? 1 : 0
   filter {
     name = "vpc-id"
-    values = [data.aws_vpc.existing_vpc[0].id]
+    values = [data.aws_vpc.existing_vpc[count.index].id] 
   }
   filter {
     name   = "tag:Tier"
     values = ["Public"]
   }
+}
+
+data "aws_subnet" "existing_private_subnet" {
+  for_each = toset(data.aws_subnets.existing_private_subnets[0].ids)
+
+  id = each.value
+}
+
+data "aws_subnet" "existing_public_subnet" {
+  for_each = toset(data.aws_subnets.existing_public_subnets[0].ids)
+
+  id = each.value
 }
 
 module "networking" {
@@ -88,8 +100,8 @@ module "database" {
   db_name               = local.config.database.db_name
   db_multi_az           = local.config.database.db_multi_az
   db_availability_zone  = local.config.database.db_availability_zone
-  private_subnet_ids    = length(module.networking) > 0 ? module.networking[0].private_subnet_ids : data.aws_subnet.existing_private_subnets.*.id
-  azs                   = length(module.networking) > 0 ? module.networking[0].azs : distinct(data.aws_subnet.existing_private_subnets[*].availability_zone)
+  private_subnet_ids = length(module.networking) > 0 ? module.networking[0].private_subnet_ids : data.aws_subnets.existing_private_subnets[0].ids
+  azs = length(module.networking) > 0 ? module.networking[0].azs : distinct([for subnet in data.aws_subnet.existing_private_subnet : subnet.value.availability_zone])
   db_username             = jsondecode(data.aws_secretsmanager_secret_version.rds_credentials[0].secret_string).username
   db_password             = jsondecode(data.aws_secretsmanager_secret_version.rds_credentials[0].secret_string).password
   kms_key_alias_arn     = length(module.kms) > 0 ? module.kms[0].kms_key_alias_arn : module.kms.kms_key_alias_arn
@@ -109,8 +121,8 @@ module "cache" {
   engine_version        = local.config.cache.engine_version
   cache_node_type         = local.config.cache.cache_node_type
   num_cache_nodes         = local.config.cache.num_cache_nodes
-  private_subnet_ids      = length(module.networking) > 0 ? module.networking[0].private_subnet_ids : data.aws_subnet.existing_private_subnets.*.id
-  azs                     = length(module.networking) > 0 ? module.networking[0].azs : distinct(data.aws_subnet.existing_private_subnets[*].availability_zone)
+  private_subnet_ids = length(module.networking) > 0 ? module.networking[0].private_subnet_ids : data.aws_subnets.existing_private_subnets[0].ids
+  azs = length(module.networking) > 0 ? module.networking[0].azs : distinct([for subnet in data.aws_subnet.existing_private_subnet : subnet.value.availability_zone])
   elasticache_redis_sg_id = length(module.security_groups) > 0 ? module.security_groups[0].elasticache_redis_sg_id : module.security_groups.elasticache_redis_sg_id
   kms_key_alias_arn       = length(module.kms) > 0 ? module.kms[0].kms_key_alias_arn : module.kms.kms_key_alias_arn
 
@@ -124,7 +136,7 @@ module "messaging" {
   kafka_version       = local.config.messaging.kafka_version 
   kafka_instance_type = local.config.messaging.kafka_instance_type
   kafka_cluster_name  = local.config.messaging.kafka_cluster_name 
-  private_subnet_ids  = length(module.networking) > 0 ? module.networking[0].private_subnet_ids : data.aws_subnet.existing_private_subnets.*.id 
+  private_subnet_ids = length(module.networking) > 0 ? module.networking[0].private_subnet_ids : data.aws_subnets.existing_private_subnets[0].ids
   msk_cluster_sg_id   = length(module.security_groups) > 0 ? module.security_groups[0].msk_cluster_sg_id : module.security_groups.msk_cluster_sg_id 
   kms_key_alias_arn   = length(module.kms) > 0 ? module.kms[0].kms_key_alias_arn : module.kms.kms_key_alias_arn
 
@@ -138,7 +150,8 @@ module "eks" {
 
   cluster_name = local.config.eks.cluster_name
   vpc_id       = length(module.networking) > 0 ? module.networking[0].vpc_id : data.aws_vpc.existing_vpc.0.id
-  subnet_ids   = length(module.networking) > 0 ? module.networking[0].private_subnet_ids : data.aws_subnet.existing_private_subnets.*.id
+  subnet_ids   = length(module.networking) > 0 ? module.networking[0].private_subnet_ids : data.aws_subnets.existing_private_subnets[0].ids
+
 
   eks_cluster_sg_id = length(module.security_groups) > 0 ? module.security_groups[0].eks_cluster_sg_id : module.security_groups.eks_cluster_sg_id
   worker_node_sg_id = length(module.security_groups) > 0 ? module.security_groups[0].worker_nodes_sg_id : ""

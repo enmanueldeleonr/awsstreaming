@@ -4,13 +4,10 @@ output "vpc_id" {
 }
 
 output "private_subnet_ids" {
-  value = var.create_networking ? aws_subnet.private_subnet.*.id : data.aws_subnets.private[0].ids
-  description = "List of Private Subnet IDs"
+  value = var.create_networking ? values(aws_subnet.private_subnet)[*].id : flatten([for i in range(length(data.aws_subnets.private)) : data.aws_subnets.private[i].ids])
 }
-
 output "public_subnet_ids" {
-  value = var.create_networking ? aws_subnet.public_subnet.*.id : data.aws_subnets.public[0].ids
-  description = "List of Public Subnet IDs"
+  value = var.create_networking ? values(aws_subnet.public_subnet)[*].id : flatten([for i in range(length(data.aws_subnets.public)) : data.aws_subnets.public[i].ids])
 }
 
 output "azs" {

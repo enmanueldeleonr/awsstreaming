@@ -18,7 +18,7 @@ reuse_infrastructure:
   messaging: true
 
 networking:
-  vpc_name_tag: "infra-mgmt-vpc"
+  vpc_name_tag: infra-mgmt-vpc
 
 database:
   db_allocated_storage: 20
