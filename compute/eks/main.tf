@@ -33,17 +33,9 @@ resource "aws_eks_node_group" "worker_nodes" {
     max_unavailable = 1
   }
 
-  timeouts {
-    create = "30m"
-    update = "30m"
-    delete = "30m"
-  }
-
   labels = {
     "node.eks.amazonaws.com/nodegroup-name" = "${var.cluster_name}-workers"
   }
-
-
 
   depends_on = [aws_iam_policy_attachment.eks_node_policy]
 }

@@ -1,21 +1,35 @@
 app_name: infra_mgmt
-modules_to_deploy: ["networking", "eks", "security_groups", "kms"] # Deploy Networking and EKS and Security Groups and KMS
+modules_to_deploy:
+  - networking
+  - security_groups
+  - kms
+  - messaging
+  - eks
 
 aws_region: eu-west-1
 
 reuse_infrastructure:
-  networking: false # Indicate CREATE new networking
-  eks: false        # Indicate CREATE new EKS
+  networking: false
+  security_groups: false
+  kms: false
+  database: false
+  cache: false
+  eks: false
+  messaging: false
 
-networking: # Configuration for NEW networking
+networking:
   vpc_cidr: "10.0.0.0/16"
   public_subnet_cidrs: ["10.0.1.0/24", "10.0.2.0/24"]
-  private_subnet_cidrs: ["10.0.11.0/24", "10.0.12.0/24", "10.0.13.0/24"]
-  azs: ["eu-west-1a", "eu-west-1b", "eu-west-1c"]
+  private_subnet_cidrs: ["10.0.101.0/24", "10.0.102.0/24"]
+  vpc_name_tag: "infra-mgmt-vpc"
 
-eks: # Configuration for NEW EKS
-  cluster_name: "shared-eks-cluster-name"
+messaging:
+  kafka_version: "3.5.1"
+  kafka_instance_type: "kafka.t3.small"
+  kafka_cluster_name: "infra-mgmt-kafka-cluster"
 
 kms:
-  key_prefix: shared-infra-encryption
-  deletion_window_in_days: 10
+  key_prefix: infra-mgmt-kms
+
+eks:
+  cluster_name: infra-mgmt-eks-cluster

@@ -1,120 +1,151 @@
 locals {
   config = yamldecode(file("config/${var.app_name}.yaml"))
+  reuse_networking = lookup(local.config.reuse_infrastructure, "networking", false)
+  reuse_eks        = lookup(local.config.reuse_infrastructure, "eks", false)
+  reuse_database   = lookup(local.config.reuse_infrastructure, "database", false)
+  reuse_security_groups = lookup(local.config.reuse_infrastructure, "security_groups", false)
+  reuse_kms        = lookup(local.config.reuse_infrastructure, "kms", false)
+}
+
+data "aws_availability_zones" "available" {
+  state = "available"
+}
+
+data "aws_vpc" "existing_vpc" {
+  count = local.reuse_networking ? 1 : 0
+  filter {
+    name = "tag:Name"
+    values = [local.config.networking.vpc_name_tag]
+  }
+}
+
+data "aws_subnet" "existing_private_subnets" {
+  count = local.reuse_networking ? 1 : 0
+  filter {
+    name = "vpc-id"
+    values = [data.aws_vpc.existing_vpc[0].id]
+  }
+  filter {
+    name   = "tag: Tier"
+    values = ["Private"]
+  }
+}
+
+data "aws_subnet" "existing_public_subnets" {
+  count = local.reuse_networking ? 1 : 0
+  filter {
+    name = "vpc-id"
+    values = [data.aws_vpc.existing_vpc[0].id]
+  }
+  filter {
+    name   = "tag:Tier"
+    values = ["Public"]
+  }
 }
 
 module "networking" {
   source = "./networking"
-  count  = contains(local.config.modules_to_deploy, "networking") && !lookup(local.config.reuse_infrastructure, "networking", false) ? 1 : 0
+  count = contains(local.config.modules_to_deploy, "networking") && !local.reuse_networking ? 1 : 0
 
-  vpc_cidr             = local.config.networking.vpc_cidr
-  public_subnet_cidrs  = local.config.networking.public_subnet_cidrs
-  private_subnet_cidrs = local.config.networking.private_subnet_cidrs
-  azs                  = local.config.networking.azs
+  app_name              = var.app_name
+  aws_region            = var.aws_region
+  vpc_cidr              = local.config.networking.vpc_cidr
+  public_subnet_cidrs    = local.config.networking.public_subnet_cidrs
+  private_subnet_cidrs   = local.config.networking.private_subnet_cidrs
+  azs                   = data.aws_availability_zones.available.names
+  vpc_name_tag          = local.config.networking.vpc_name_tag
+  create_networking     = !local.reuse_networking
 }
 
-data "aws_vpc" "existing_vpc" {
-  count = lookup(local.config.reuse_infrastructure, "networking", false) ? 1 : 0
-  id    = local.config.existing_infrastructure.networking.vpc_id
-}
+module "security_groups" {
+  source = "./security_groups"
+  count = contains(local.config.modules_to_deploy, "security_groups") && !local.reuse_security_groups ? 1 : 0
 
-data "aws_subnet" "existing_public_subnets" {
-  count = lookup(local.config.reuse_infrastructure, "networking", false) ? length(local.config.existing_infrastructure.networking.public_subnet_ids) : 0
-  id    = element(local.config.existing_infrastructure.networking.public_subnet_ids, count.index)
-}
-
-data "aws_subnet" "existing_private_subnets" {
-  count = lookup(local.config.reuse_infrastructure, "networking", false) ? length(local.config.existing_infrastructure.networking.private_subnet_ids) : 0
-  id    = element(local.config.existing_infrastructure.networking.private_subnet_ids, count.index)
-}
-
-
-module "eks" {
-  source = "./compute/eks"
-  count  = contains(local.config.modules_to_deploy, "eks") && !lookup(local.config.reuse_infrastructure, "eks", false) ? 1 : 0
-
-  cluster_name = local.config.eks.cluster_name
-  vpc_id       = length(module.networking) > 0 ? module.networking[0].vpc_id : data.aws_vpc.existing_vpc[0].id
-  subnet_ids   = length(module.networking) > 0 ? module.networking[0].private_subnet_ids : data.aws_subnet.existing_private_subnets[*].id
-
-  eks_cluster_sg_id = module.security_groups[0].eks_cluster_sg_id
-  worker_node_sg_id = module.security_groups[0].eks_worker_node_sg_id
-
-  kms_key_alias_arn = module.kms[0].kms_key_alias_arn
-
-  depends_on = [module.networking, module.security_groups, module.kms]
-}
-
-data "aws_eks_cluster" "existing_eks_cluster" {
-  count = lookup(local.config.reuse_infrastructure, "eks", false) ? 1 : 0
-  name  = local.config.existing_infrastructure.eks.cluster_name
+  app_name   = var.app_name
+  vpc_id     = length(module.networking) > 0 ? module.networking[0].vpc_id : data.aws_vpc.existing_vpc.0.id
 }
 
 
 module "kms" {
   source = "./kms"
-  count  = contains(local.config.modules_to_deploy, "kms") ? 1 : 0
+  count = contains(local.config.modules_to_deploy, "kms") && !local.reuse_kms ? 1 : 0
 
-  key_prefix              = local.config.kms.key_prefix
-  deletion_window_in_days = lookup(local.config.kms, "deletion_window_in_days", 7)
+  app_name   = var.app_name
+  aws_region = var.aws_region
+  key_prefix = local.config.kms.key_prefix
 }
+
 
 module "database" {
   source = "./database"
-  count  = contains(local.config.modules_to_deploy, "database") ? 1 : 0
+  count = contains(local.config.modules_to_deploy, "database") && !local.reuse_database ? 1 : 0
 
-  db_allocated_storage = local.config.database.db_allocated_storage
-  db_engine_version    = local.config.database.db_engine_version
-  db_instance_class    = local.config.database.db_instance_class
-  db_name              = local.config.database.db_name
-  db_username          = jsondecode(data.aws_secretsmanager_secret_version.rds_credentials[0].secret_string).username
-  db_password          = jsondecode(data.aws_secretsmanager_secret_version.rds_credentials[0].secret_string).password
-  private_subnet_ids   = lookup(local.config.reuse_infrastructure, "networking", false) ? data.aws_subnet.existing_private_subnets.*.id : module.networking.0.private_subnet_ids
-  rds_postgres_sg_id   = module.security_groups[0].rds_postgres_sg_id
-  azs                  = length(module.networking) > 0 ? module.networking[0].azs : distinct(data.aws_subnet.existing_private_subnets[*].availability_zone)
-  db_multi_az          = local.config.database.db_multi_az
-  db_availability_zone = local.config.database.db_availability_zone
-  kms_key_alias_arn    = module.kms[0].kms_key_alias_arn
+  app_name              = var.app_name
+  aws_region            = var.aws_region
+  db_allocated_storage  = local.config.database.db_allocated_storage
+  db_instance_class     = local.config.database.db_instance_class
+  db_engine_version     = local.config.database.db_engine_version
+  db_name               = local.config.database.db_name
+  db_multi_az           = local.config.database.db_multi_az
+  db_availability_zone  = local.config.database.db_availability_zone
+  private_subnet_ids    = length(module.networking) > 0 ? module.networking[0].private_subnet_ids : data.aws_subnet.existing_private_subnets.*.id
+  azs                   = length(module.networking) > 0 ? module.networking[0].azs : distinct(data.aws_subnet.existing_private_subnets[*].availability_zone)
+  db_username             = jsondecode(data.aws_secretsmanager_secret_version.rds_credentials[0].secret_string).username
+  db_password             = jsondecode(data.aws_secretsmanager_secret_version.rds_credentials[0].secret_string).password
+  kms_key_alias_arn     = length(module.kms) > 0 ? module.kms[0].kms_key_alias_arn : module.kms.kms_key_alias_arn
+  rds_postgres_sg_id    = length(module.security_groups) > 0 ? module.security_groups[0].rds_postgres_sg_id : module.security_groups.rds_postgres_sg_id # Get SG from security_groups
 
-  depends_on = [module.networking, module.kms, module.security_groups, aws_secretsmanager_secret.rds_secret] # Add secret dependency
+
+  depends_on = [module.networking, module.kms, module.security_groups, aws_secretsmanager_secret.rds_secret]
 }
 
 module "cache" {
   source = "./cache"
-  count  = contains(local.config.modules_to_deploy, "cache") ? 1 : 0
+  count = contains(local.config.modules_to_deploy, "cache") ? 1 : 0
 
+  app_name            = var.app_name
+  aws_region          = var.aws_region
   cache_cluster_id        = local.config.cache.cache_cluster_id
+  engine_version        = local.config.cache.engine_version
   cache_node_type         = local.config.cache.cache_node_type
-  cache_num_nodes         = local.config.cache.cache_num_nodes
-  cache_engine_version    = local.config.cache.cache_engine_version
-  private_subnet_ids      = lookup(local.config.reuse_infrastructure, "networking", false) ? data.aws_subnet.existing_private_subnets.*.id : module.networking.0.private_subnet_ids
-  elasticache_redis_sg_id = module.security_groups[0].elasticache_redis_sg_id
-  kms_key_alias_arn       = module.kms[0].kms_key_alias_arn
+  num_cache_nodes         = local.config.cache.num_cache_nodes
+  private_subnet_ids      = length(module.networking) > 0 ? module.networking[0].private_subnet_ids : data.aws_subnet.existing_private_subnets.*.id
+  azs                     = length(module.networking) > 0 ? module.networking[0].azs : distinct(data.aws_subnet.existing_private_subnets[*].availability_zone)
+  elasticache_redis_sg_id = length(module.security_groups) > 0 ? module.security_groups[0].elasticache_redis_sg_id : module.security_groups.elasticache_redis_sg_id
+  kms_key_alias_arn       = length(module.kms) > 0 ? module.kms[0].kms_key_alias_arn : module.kms.kms_key_alias_arn
 
   depends_on = [module.networking, module.security_groups, module.kms]
 }
 
 module "messaging" {
   source = "./messaging"
-  count  = contains(local.config.modules_to_deploy, "messaging") ? 1 : 0
+  count = contains(local.config.modules_to_deploy, "messaging") ? 1 : 0
 
-  kafka_cluster_name  = local.config.messaging.kafka_cluster_name
-  kafka_version       = local.config.messaging.kafka_version
-  kafka_broker_nodes  = local.config.messaging.kafka_broker_nodes
+  kafka_version       = local.config.messaging.kafka_version 
   kafka_instance_type = local.config.messaging.kafka_instance_type
-  private_subnet_ids  = lookup(local.config.reuse_infrastructure, "networking", false) ? data.aws_subnet.existing_private_subnets.*.id : module.networking.0.private_subnet_ids
-  msk_cluster_sg_id   = module.security_groups[0].msk_cluster_sg_id
-  kms_key_alias_arn   = module.kms[0].kms_key_alias_arn
+  kafka_cluster_name  = local.config.messaging.kafka_cluster_name 
+  private_subnet_ids  = length(module.networking) > 0 ? module.networking[0].private_subnet_ids : data.aws_subnet.existing_private_subnets.*.id 
+  msk_cluster_sg_id   = length(module.security_groups) > 0 ? module.security_groups[0].msk_cluster_sg_id : module.security_groups.msk_cluster_sg_id 
+  kms_key_alias_arn   = length(module.kms) > 0 ? module.kms[0].kms_key_alias_arn : module.kms.kms_key_alias_arn
+
+  depends_on = [module.networking, module.kms]
+}
+
+
+module "eks" {
+  source = "./compute/eks"
+  count = contains(local.config.modules_to_deploy, "eks") && !local.reuse_eks ? 1 : 0
+
+  cluster_name = local.config.eks.cluster_name
+  vpc_id       = length(module.networking) > 0 ? module.networking[0].vpc_id : data.aws_vpc.existing_vpc.0.id
+  subnet_ids   = length(module.networking) > 0 ? module.networking[0].private_subnet_ids : data.aws_subnet.existing_private_subnets.*.id
+
+  eks_cluster_sg_id = length(module.security_groups) > 0 ? module.security_groups[0].eks_cluster_sg_id : module.security_groups.eks_cluster_sg_id
+  worker_node_sg_id = length(module.security_groups) > 0 ? module.security_groups[0].worker_node_sg_id : module.security_groups.eks_worker_node_sg_id
+  kms_key_alias_arn = length(module.kms) > 0 ? module.kms[0].kms_key_alias_arn : module.kms.kms_key_alias_arn
 
   depends_on = [module.networking, module.security_groups, module.kms]
 }
-
-
-module "security_groups" {
-  source = "./security_groups"
-  count  = contains(local.config.modules_to_deploy, "security_groups") ? 1 : 0
-  vpc_id = try(module.networking[0].vpc_id, data.aws_vpc.existing_vpc.0.id)
-}
-
 
 # Data Source and Resource for Secrets Manager
 
